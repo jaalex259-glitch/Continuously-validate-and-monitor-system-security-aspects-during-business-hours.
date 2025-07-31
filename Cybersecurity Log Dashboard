@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cybersecurity Log Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #111; color: #eee; padding: 2rem; }
+    h2 { color: #4af; }
+    #log { white-space: pre-wrap; background-color: #222; padding: 1rem; border-radius: 5px; max-height: 80vh; overflow-y: auto; }
+    .ok { color: #0f0; }
+    .warn { color: #ff0; }
+    .error { color: #f33; }
+  </style>
+</head>
+<body>
+  <h2>Cybersecurity Validation Logs</h2>
+  <div id="log">Loading logs...</div>
+
+  <script>
+    const apiURL = "https://www.ToronTik.com/api/logs"; // <-- Change if your endpoint is different
+
+    async function fetchLogs() {
+      try {
+        const res = await fetch(apiURL);
+        const text = await res.text();
+        const html = text
+          .replace(/\[OK\]/g, '<span class="ok">[OK]</span>')
+          .replace(/\[!\]/g, '<span class="error">[!]</span>')
+          .replace(/\[WARN\]/g, '<span class="warn">[WARN]</span>');
+        document.getElementById("log").innerHTML = html;
+      } catch (e) {
+        document.getElementById("log").textContent = "Error loading logs.";
+      }
+    }
+
+    setInterval(fetchLogs, 5000);
+    fetchLogs();
+  </script>
+</body>
+</html>
+_____________________
+server.js
+const express = require("express");
+const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
+
+const app = express();
+const PORT = 3000;
+
+// Adjust log path depending on your OS
+const logPath = process.platform === "win32" ? "C:\\cyberlog.txt" : "/var/log/cyberlog.txt";
+
+app.use(cors()); // Allow access from GitHub Pages
+
+app.get("/api/logs", (req, res) => {
+  fs.readFile(logPath, "utf8", (err, data) => {
+    if (err) {
+      return res.status(500).send("Unable to read logs.");
+    }
+    res.type("text/plain").send(data);
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Log API running at http://localhost:${PORT}/api/logs`);
+});
+npm install pm2 -g
+pm2 start server.js --name torontik-log-api
+pm2 startup
+pm2 save
+server {
+    listen 80;
+    server_name www.torontik.com;
+
+    location /api/logs {
+        proxy_pass http://localhost:3000/api/logs;
+        add_header Access-Control-Allow-Origin *;
+    }
+
+    location / {
+        root /var/www/torontik.com/html;
+        index index.html;
+    }
+}
+sudo nginx -s reload
